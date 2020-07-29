@@ -1,5 +1,3 @@
-import { render } from "sass";
-
 export default class AudioPlayer {
     constructor(selector = '.audioPlayer', audio = []) {
         this.playerElem = document.querySelector(selector);
@@ -46,27 +44,116 @@ export default class AudioPlayer {
 
     createPlayerElements() {
         this.audioElem = document.createElement('audio');
-        const playListElem = document.createElement('div');
-        playListElem.classList.add('playlist');
+        this.audioElem.addEventListener('ended', this.playNext.bind(this));
+        this.audioElem.ontimeupdate = this.updateTime.bind(this);
+        const containerElem = document.createElement('div');
+        containerElem.classList.add('container');
+        this.playListElem = document.createElement('div');
+        this.playListElem.classList.add('playlist');
         const playElem = document.createElement('button');
         playElem.classList.add('play');
         playElem.innerHTML = '<i class="fa fa-play"></i>';
         this.visualiserElem = document.createElement('canvas');
-        this.playerElem.appendChild(this.audioElem);
-        this.playerElem.appendChild(playListElem);
-        this.playerElem.appendChild(this.visualiserElem);
+        
+        const progressBarElem = document.createElement('div');
+        progressBarElem.classList.add('progressBar');
+        containerElem.appendChild(this.audioElem);
+        containerElem.appendChild(this.playListElem);
+        containerElem.appendChild(this.visualiserElem);
+        this.playerElem.appendChild(containerElem);
+        this.playerElem.appendChild(progressBarElem);
+        this.createPlayListElements(this.playListElem);
+        this.createProgressBarElements(progressBarElem);
+    }
 
-        this.createPlayListElements(playListElem);
+    createProgressBarElements(progressBarElem) {
+        const container = document.createElement('div');
+        container.classList.add('container');
+        
+        const previousBtn = document.createElement('button');
+        const nextBtn = document.createElement('button');
+        
+        nextBtn.innerHTML = '<i class="fas fa-forward"></i>';
+        previousBtn.innerHTML = '<i class="fas fa-backward"></i>';
+        previousBtn.addEventListener('click', this.playPrevious.bind(this));
+        nextBtn.addEventListener('click', this.playNext.bind(this));
+            
+        this.progressBar = document.createElement('canvas');
+        this.progressBar.addEventListener('click', (e) => {
+            const progressBarWidth = parseInt(window.getComputedStyle(this.progressBar).width);
+
+            const amountComplete = ((e.clientX - this.progressBar.getBoundingClientRect().left) / progressBarWidth);
+            this.audioElem.currentTime = (this.audioElem.duration || 0) * amountComplete;
+        });
+        this.timer = document.createElement('div');
+        this.timer.classList.add('timer');
+
+        container.appendChild(previousBtn);
+        container.appendChild(this.timer);
+        container.appendChild(nextBtn);
+        progressBarElem.appendChild(container);
+        progressBarElem.appendChild(this.progressBar);
+    }
+
+    updateCurrentAudio(nextAudio) {
+        if (!this.audioContext) {
+            this.createVisualiser();
+        }
+
+        this.setPlayIcon(this.currentAudio);
+        this.currentAudio = nextAudio;  
+        this.setPauseIcon(this.currentAudio);
+        this.audioElem.src = this.currentAudio.getAttribute('href');
+        this.audioElem.play();
+    }
+
+    playNext() {
+        const index = this.audioElements.findIndex(audioItem => audioItem.getAttribute('href') === this.currentAudio.getAttribute('href'));
+        const nextAudio = index >= this.audioElements.length - 1 ? this.audioElements[0] : this.audioElements[index+1];
+        this.updateCurrentAudio(nextAudio);
+    }
+
+    playPrevious() {
+        const index = this.audioElements.findIndex(audioItem => audioItem.getAttribute('href') === this.currentAudio.getAttribute('href'));
+        const nextAudio = index <= 0 ? this.audioElements[this.audioElements.length-1] : this.audioElements[index -1];
+        this.updateCurrentAudio(nextAudio);
+   }
+
+
+   updateTime() {
+    const parseTime = time => {
+        const seconds = String(Math.floor(time % 60) || 0).padStart('2', '0');
+        const minutes = String(Math.floor(time / 60) || 0).padStart('2', '0');
+        return `${minutes}:${seconds}`;
+    };
+    const { currentTime, duration } = this.audioElem;
+    this.timer.innerHTML = `${parseTime(currentTime)}/${parseTime(duration)}`;
+
+    this.updateProgressBar();
+}
+
+    updateProgressBar() {
+        const progressSize = (current, overall, width) => (current / overall) * width;
+        const { currentTime, duration } = this.audioElem;
+        const progressCtx = this.progressBar.getContext('2d');
+        
+        progressCtx.fillStyle = '#000';
+        progressCtx.fillRect(0, 0, this.progressBar.width, this.progressBar.height);
+        
+        progressCtx.fillStyle = '#65ac6b';
+        progressCtx.fillRect(0, 0, progressSize(currentTime, duration, this.progressBar.width), this.progressBar.height);
     }
 
     createPlayListElements(playListElem) {
-        this.audio.forEach(audio => {
+        this.audioElements = this.audio.map(audio => {
             const audioItem = document.createElement('a');
             audioItem.href = audio.url;
             audioItem.innerHTML = `<i class="fa fa-play"></i>${audio.name}`;
             this.setEventListener(audioItem);
             playListElem.appendChild(audioItem);
+            return audioItem;
         });
+        this.currentAudio = this.audioElements[0];
     }
 
     setEventListener(audioItem) {

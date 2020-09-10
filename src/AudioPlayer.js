@@ -6,6 +6,11 @@ export default class AudioPlayer {
     this.createPlayerElements()
     }
     createPlayerElements() {
-        this.audioElem = document.createElement()
+        this.audioElem = document.createElement('audio')
+        this.playlistElem = document.createElement('div')
+        this.playlistElem.classList.add('playlist')
+
+        this.playerElem.appendChild(this.audioElem)
+        this.playerElem.appendChild(this.playlistElem)
     }
 }
